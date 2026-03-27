@@ -1,6 +1,16 @@
 /* eslint-disable prettier/prettier */
-import { useNavigation } from "@react-navigation/native";
+import { fetch } from "expo/fetch";
 import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { styles } from "./fetch.styles";
 
 interface ShopifyProps {
   id: string;
@@ -32,15 +42,13 @@ function Fetch() {
   const [products, setProducts] = useState<ProductEdgeProps[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
-  const [hasFetched, setHasFetched] = useState<boolean>(false);
-  const navigate = useNavigation();
 
   const fetchProductsFromBackend = useCallback(
     async (searchProducts: string) => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `http://localhost:3000?search=${encodeURIComponent(searchProducts)}`,
+          `http://10.0.2.2:3000/?search=${encodeURIComponent(searchProducts)}`, //Android emulator networking
         );
 
         const responseData: ApiResponse = await response.json();
@@ -48,7 +56,6 @@ function Fetch() {
         if (responseData?.data?.edges) {
           setProducts(responseData.data.edges || []);
         }
-        setHasFetched(true);
       } catch (error) {
         console.log("Error while fetching", error);
       } finally {
@@ -63,7 +70,7 @@ function Fetch() {
   };
 
   useEffect(() => {
-    if (!hasFetched) return;
+    if (search.length === 0) return;
     const debounceTime = setTimeout(() => {
       fetchProductsFromBackend(search);
     }, 500);
@@ -72,87 +79,80 @@ function Fetch() {
     return () => {
       clearTimeout(debounceTime); // remove old timer if users filter be4 500
     };
-  }, [search, hasFetched, fetchProductsFromBackend]);
+  }, [search, fetchProductsFromBackend]);
 
-  //   const returnBtn = () => {
-  //     navigate.navigate('Index');
-  //   };
+  const renderProduct = ({ item }: { item: any }) => {
+    const node = item.node;
+    const firstVariant = node.variants?.edges?.[0]?.node;
+    return (
+      <View style={styles.tableRow}>
+        <Text style={[styles.cell, { flex: 2 }]}>{node.title}</Text>
+        <Text style={[styles.cell, { flex: 1, color: "#666" }]}>
+          {firstVariant?.sku || "N/A"}
+        </Text>
+        <Text
+          style={[
+            styles.cell,
+            { flex: 1, textAlign: "right", fontWeight: "bold" },
+          ]}
+        >
+          ${firstVariant?.price?.amount || "0.00"}
+        </Text>
+      </View>
+    );
+  };
+
+  // Component for the Sticky Header
+  const TableHeader = () => (
+    <View style={styles.tableHeader}>
+      <Text style={[styles.columnHeader, { flex: 2 }]}>Name</Text>
+      <Text style={[styles.columnHeader, { flex: 1 }]}>SKU</Text>
+      <Text style={[styles.columnHeader, { flex: 1, textAlign: "right" }]}>
+        Price
+      </Text>
+    </View>
+  );
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <header style={{ padding: "20px 40px", borderBottom: "1px" }}>
-        <h2>Products Listing</h2>
-        <div style={{ display: "flex", gap: "20px" }}>
-          <button
-            type="button"
-            onClick={onFetch}
-            disabled={isLoading}
-            style={{ background: "#007bff", color: "#fff" }}
-          >
-            {isLoading ? "Loading..." : "Fetch Products"}
-          </button>
+    <SafeAreaView style={styles.container}>
+      {/* Top Search Section */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Product Listing</Text>
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.button} onPress={onFetch}>
+            <Text style={styles.buttonText}>Fetch Products</Text>
+          </TouchableOpacity>
 
-          {!isLoading && products.length > 0 && (
-            <input
-              style={{ padding: "10px", marginLeft: "40px" }}
-              type="text"
-              placeholder="Search name or SKU..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search name or SKU..."
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+      </View>
+
+      {/* Main List Section */}
+      <FlatList
+        data={products}
+        renderItem={renderProduct}
+        keyExtractor={(item) => item.node.id}
+        ListHeaderComponent={products.length > 0 ? TableHeader : null}
+        stickyHeaderIndices={products.length > 0 ? [0] : []}
+        contentContainerStyle={styles.listContent}
+        ListFooterComponent={
+          isLoading ? (
+            <ActivityIndicator
+              size="large"
+              color="#007bff"
+              style={{ marginTop: 20 }}
             />
-          )}
-          {/* <button type="button" onClick={returnBtn}>
-              Homepage
-            </button> */}
-        </div>
-      </header>
-
-      <main
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "20px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {isLoading && <p>Connecting Node.js server...</p>}
-        {!isLoading && products.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th style={{ position: "sticky", top: 0 }}>Name</th>
-                <th style={{ position: "sticky" }}>SKU</th>
-                <th style={{ position: "sticky" }}>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map(({ node }) => {
-                const firstVariant = node.variants?.edges?.[0].node;
-                return (
-                  <tr key={node.id}>
-                    <td style={{ padding: "10px" }}>{node.title}</td>
-                    <td style={{ padding: "10px" }}>
-                      {firstVariant?.sku || "null"}
-                    </td>
-                    <td style={{ padding: "10px" }}>
-                      {firstVariant?.price.amount}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </main>
-    </div>
+          ) : (
+            <View style={{ height: 40 }} />
+          ) // Extra space at bottom
+        }
+      />
+    </SafeAreaView>
   );
 }
 export default Fetch;
