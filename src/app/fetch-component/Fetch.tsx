@@ -2,8 +2,7 @@
 import { fetch } from "expo/fetch";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -81,77 +80,57 @@ function Fetch() {
     };
   }, [search, fetchProductsFromBackend]);
 
-  const renderProduct = ({ item }: { item: any }) => {
-    const node = item.node;
-    const firstVariant = node.variants?.edges?.[0]?.node;
-    return (
-      <View style={styles.tableRow}>
-        <Text style={[styles.cell, { flex: 2 }]}>{node.title}</Text>
-        <Text style={[styles.cell, { flex: 1, color: "#666" }]}>
-          {firstVariant?.sku || "N/A"}
-        </Text>
-        <Text
-          style={[
-            styles.cell,
-            { flex: 1, textAlign: "right", fontWeight: "bold" },
-          ]}
-        >
-          ${firstVariant?.price?.amount || "0.00"}
-        </Text>
-      </View>
-    );
-  };
-
-  // Component for the Sticky Header
-  const TableHeader = () => (
-    <View style={styles.tableHeader}>
-      <Text style={[styles.columnHeader, { flex: 2 }]}>Name</Text>
-      <Text style={[styles.columnHeader, { flex: 1 }]}>SKU</Text>
-      <Text style={[styles.columnHeader, { flex: 1, textAlign: "right" }]}>
-        Price
-      </Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Search Section */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Product Listing</Text>
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.button} onPress={onFetch}>
-            <Text style={styles.buttonText}>Fetch Products</Text>
+        <Text>Products Listing</Text>
+        <View style={{ display: "flex", gap: 20 }}>
+          <TouchableOpacity
+            onPress={onFetch}
+            disabled={isLoading}
+            style={styles.button}
+          >
+            <Text>{isLoading ? "Loading..." : "Fetch Products"}</Text>
           </TouchableOpacity>
 
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search name or SKU..."
-            value={search}
-            onChangeText={setSearch}
-          />
+          {!isLoading && products.length > 0 && (
+            <TextInput
+              placeholder="Search name or SKU..."
+              value={search}
+              onChangeText={setSearch}
+            />
+          )}
         </View>
       </View>
 
-      {/* Main List Section */}
-      <FlatList
-        data={products}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.node.id}
-        ListHeaderComponent={products.length > 0 ? TableHeader : null}
-        stickyHeaderIndices={products.length > 0 ? [0] : []}
-        contentContainerStyle={styles.listContent}
-        ListFooterComponent={
-          isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color="#007bff"
-              style={{ marginTop: 20 }}
-            />
-          ) : (
-            <View style={{ height: 40 }} />
-          ) // Extra space at bottom
-        }
-      />
+      <ScrollView style={styles.container}>
+        {isLoading && <Text>Connecting Node.js server...</Text>}
+        {!isLoading && products.length > 0 && (
+          <View>
+            <View style={{ flexDirection: "row", paddingBottom: 10 }}>
+              <Text style={{ flex: 2, fontWeight: "bold" }}>Name</Text>
+              <Text style={{ flex: 1, fontWeight: "bold" }}>SKU</Text>
+              <Text style={{ flex: 1, fontWeight: "bold" }}>Price</Text>
+            </View>
+
+            {products.map(({ node }) => {
+              const firstVariant = node.variants?.edges?.[0]?.node;
+              return (
+                <View
+                  key={node.id}
+                  style={{ flexDirection: "row", marginBottom: 10 }}
+                >
+                  <Text style={{ flex: 2 }}>{node.title}</Text>
+                  <Text style={{ flex: 1 }}>{firstVariant?.sku || "null"}</Text>
+                  <Text style={{ flex: 1 }}>
+                    {firstVariant?.price?.amount || "0"}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
